@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1022" />
+    <meta name="description" content="Una app web hermosa para jugar Impostor en el móvil." />
+    <title>Impostor</title>
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='30%25' cy='30%25' r='80%25'%3E%3Cstop offset='0%25' stop-color='%23a78bfa'/%3E%3Cstop offset='55%25' stop-color='%2322c55e'/%3E%3Cstop offset='100%25' stop-color='%230ea5e9'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='%230b1220'/%3E%3Cpath d='M18 42c0-10 6-20 14-20s14 10 14 20' fill='none' stroke='url(%23g)' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='24' r='4' fill='%23e2e8f0'/%3E%3Ccircle cx='40' cy='24' r='4' fill='%23e2e8f0'/%3E%3C/svg%3E"
+    />
+
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg" aria-hidden="true"></div>
+
+    <button class="icon-btn floating-reset" id="btnReset" type="button" title="Reiniciar">
+      <span class="icon" aria-hidden="true">↺</span>
+      <span class="sr-only">Reiniciar</span>
+    </button>
+
+    <main class="wrap" id="app" role="main">
+      <section class="card view" data-view="home" aria-labelledby="homeTitle">
+        <div class="card-body">
+          <h1 id="homeTitle" class="hero"><span class="accent">Impostor</span></h1>
+          <p class="muted">
+            Agrega participantes, elige impostores y pasa el teléfono. Desliza hacia arriba para revelar tu rol.
+          </p>
+          <div class="actions">
+            <button class="btn primary" id="btnGoSetup" type="button">Crear partida</button>
+            <button class="btn ghost" id="btnQuickStart" type="button">Usar última configuración</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card view" data-view="setup" aria-labelledby="setupTitle">
+        <div class="card-body">
+          <div class="row">
+            <h2 id="setupTitle" class="h2">Participantes</h2>
+            <span class="counter" id="playerCount">0 jugadores</span>
+          </div>
+
+          <div class="input-row">
+            <label class="sr-only" for="nameInput">Agregar participante</label>
+            <input
+              id="nameInput"
+              class="input"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="words"
+              spellcheck="false"
+              placeholder="Escribe un nombre…"
+            />
+            <button class="btn primary small" id="btnAddName" type="button">Agregar</button>
+          </div>
+
+          <div class="chip-list" id="nameChips" aria-live="polite"></div>
+
+          <div class="divider"></div>
+
+          <div class="row">
+            <h3 class="h3">Impostores</h3>
+            <span class="counter" id="impostorCountLabel">1</span>
+          </div>
+
+          <div class="slider">
+            <input id="impostorRange" type="range" min="1" max="1" value="1" step="1" />
+            <div class="slider-meta">
+              <span class="muted">1</span>
+              <span class="muted" id="impostorMaxLabel">1</span>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="actions">
+            <button class="btn primary" id="btnStartGame" type="button">Iniciar juego</button>
+            <button class="btn ghost" id="btnBackHome" type="button">Volver</button>
+          </div>
+
+          <p class="micro muted" id="setupError" role="alert"></p>
+        </div>
+      </section>
+
+      <section class="card view" data-view="turn" aria-labelledby="turnTitle">
+        <div class="card-body">
+          <div class="meta" aria-label="Progreso">
+            <div class="meta-pill" id="turnBadge">Jugador 1 de 1</div>
+            <div class="meta-pill subtle" id="turnProgress">Oculto</div>
+          </div>
+
+          <h2 id="turnTitle" class="h2">Pásale el teléfono a</h2>
+          <div class="name" id="turnName">—</div>
+
+          <div class="reveal-area" id="revealArea" aria-label="Desliza hacia arriba para revelar tu rol">
+            <div class="reveal-front" id="revealFront">
+              <div class="swipe">
+                <div class="swipe-arrow" aria-hidden="true">↑</div>
+                <div class="swipe-text">Desliza para revelar</div>
+              </div>
+              <button class="btn ghost small" id="btnReveal" type="button">Revelar</button>
+            </div>
+
+            <div class="reveal-back" id="revealBack" aria-hidden="true">
+              <div class="role" id="roleLabel">—</div>
+              <div class="word" id="wordLabel">—</div>
+              <div class="micro muted" id="roleHint">Mira tu rol en privado y luego toca siguiente.</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" id="btnNext" type="button" disabled>Siguiente</button>
+            <button class="btn ghost" id="btnRestartSetup" type="button">Cambiar participantes</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card view" data-view="begin" aria-labelledby="beginTitle">
+        <div class="card-body">
+          <div class="badge">Empieza la ronda</div>
+          <h2 id="beginTitle" class="h2">Comienza</h2>
+          <div class="name big" id="starterName">—</div>
+
+          <div class="actions">
+            <button class="btn primary" id="btnRevealImpostors" type="button">Revelar impostores</button>
+            <button class="btn ghost" id="btnPlayAgain" type="button">Jugar de nuevo (roles nuevos)</button>
+          </div>
+
+          <p class="micro muted">
+            Espera al final de la ronda para revelar impostores.
+          </p>
+        </div>
+      </section>
+
+      <section class="card view" data-view="results" aria-labelledby="resultsTitle">
+        <div class="card-body">
+          <div class="badge danger">Impostores</div>
+          <h2 id="resultsTitle" class="h2">Los impostores eran…</h2>
+          <div class="results" id="impostorNames">—</div>
+
+          <div class="divider"></div>
+
+          <div class="row">
+            <h3 class="h3">Palabra</h3>
+            <span class="counter" id="resultsWord">—</span>
+          </div>
+
+          <div class="actions">
+            <button class="btn primary" id="btnPlayAgain2" type="button">Jugar de nuevo</button>
+            <button class="btn ghost" id="btnChangeParticipants" type="button">Cambiar participantes</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
