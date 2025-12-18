@@ -157,13 +157,18 @@ function updateSetupUI() {
   const count = state.participants.length;
   el("playerCount").textContent = `${count} jugador${count === 1 ? "" : "es"}`;
 
-  const maxImpostors = Math.max(1, count - 1);
+  // Require fewer impostors than jugadores normales:
+  // impostores < (jugadores - impostores)  =>  2*impostores < jugadores
+  const maxImpostors = Math.max(1, Math.floor((count - 1) / 2));
   el("impostorRange").max = String(maxImpostors);
   el("impostorMaxLabel").textContent = String(maxImpostors);
 
   state.impostorCount = clamp(state.impostorCount, 1, maxImpostors);
   el("impostorRange").value = String(state.impostorCount);
   el("impostorCountLabel").textContent = String(state.impostorCount);
+
+  const sliderBlock = el("impostorSliderBlock");
+  if (sliderBlock) sliderBlock.style.display = maxImpostors === 1 ? "none" : "";
 
   const chips = el("nameChips");
   chips.innerHTML = "";
@@ -210,14 +215,18 @@ function hydrateFromSavedSetup() {
   );
   if (participants.length < 3) return false;
   state.participants = participants;
-  state.impostorCount = clamp(loaded.impostorCount || 1, 1, participants.length - 1);
+  state.impostorCount = clamp(
+    loaded.impostorCount || 1,
+    1,
+    Math.max(1, Math.floor((participants.length - 1) / 2)),
+  );
   return true;
 }
 
 function newRound() {
   // Randomize turn order each round (input order stays the same in setup).
   const players = shuffleInPlace([...state.participants]);
-  const impostors = clamp(state.impostorCount, 1, players.length - 1);
+  const impostors = clamp(state.impostorCount, 1, Math.max(1, Math.floor((players.length - 1) / 2)));
 
   const indices = players.map((_, i) => i);
   shuffleInPlace(indices);
@@ -379,14 +388,14 @@ function wireEvents() {
 
   el("btnStartGame").addEventListener("click", () => {
     const count = state.participants.length;
-    const maxImpostors = count - 1;
+    const maxImpostors = Math.max(1, Math.floor((count - 1) / 2));
 
     if (count < 3) {
       setSetupError("Agrega al menos 3 participantes.");
       return;
     }
     if (state.impostorCount < 1 || state.impostorCount > maxImpostors) {
-      setSetupError(`Los impostores deben ser entre 1 y ${maxImpostors}.`);
+      setSetupError(`Debe haber menos impostores que jugadores normales (máximo ${maxImpostors}).`);
       return;
     }
 
