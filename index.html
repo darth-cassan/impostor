@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b1022" />
+    <meta name="theme-color" content="#eef2ff" />
     <meta name="description" content="Una app web hermosa para jugar Impostor en el móvil." />
     <title>Impostor</title>
 
@@ -15,7 +15,7 @@
 
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
+  <body data-view="home">
     <div class="bg" aria-hidden="true"></div>
 
     <button class="icon-btn floating-reset" id="btnReset" type="button" title="Reiniciar">
@@ -24,15 +24,24 @@
     </button>
 
     <main class="wrap" id="app" role="main">
-      <section class="card view" data-view="home" aria-labelledby="homeTitle">
+      <section class="card view active" data-view="home" aria-labelledby="homeTitle">
         <div class="card-body">
-          <h1 id="homeTitle" class="hero"><span class="accent">Impostor</span></h1>
-          <p class="muted">
-            Agrega participantes, elige impostores y pasa el teléfono. Desliza hacia arriba para revelar tu rol.
-          </p>
-          <div class="actions">
+          <div class="home-hero">
+            <h1 id="homeTitle" class="home-title">Impostor</h1>
+          </div>
+
+          <div class="home-divider" aria-hidden="true"></div>
+
+          <div class="home-how" aria-label="Cómo jugar">
+            <div class="home-how-title">Cómo jugar</div>
+            <p class="home-how-text">
+              Crea la partida, agrega participantes y elige impostores. Luego pasa el móvil: cada jugador desliza
+              para ver su rol y toca siguiente. Al final, revela a los impostores.
+            </p>
+          </div>
+
+          <div class="actions home-actions">
             <button class="btn primary" id="btnGoSetup" type="button">Crear partida</button>
-            <button class="btn ghost" id="btnQuickStart" type="button">Usar última configuración</button>
           </div>
         </div>
       </section>
@@ -77,12 +86,12 @@
 
           <div class="divider"></div>
 
+          <p class="micro muted" id="setupError" role="alert"></p>
+
           <div class="actions">
             <button class="btn primary" id="btnStartGame" type="button">Iniciar juego</button>
             <button class="btn ghost" id="btnBackHome" type="button">Volver</button>
           </div>
-
-          <p class="micro muted" id="setupError" role="alert"></p>
         </div>
       </section>
 
@@ -121,26 +130,24 @@
 
       <section class="card view" data-view="begin" aria-labelledby="beginTitle">
         <div class="card-body">
-          <div class="badge">Empieza la ronda</div>
           <h2 id="beginTitle" class="h2">Comienza</h2>
           <div class="name big" id="starterName">—</div>
-
-          <div class="actions">
-            <button class="btn primary" id="btnRevealImpostors" type="button">Revelar impostores</button>
-            <button class="btn ghost" id="btnPlayAgain" type="button">Jugar de nuevo (roles nuevos)</button>
-          </div>
 
           <p class="micro muted">
             Espera al final de la ronda para revelar impostores.
           </p>
+
+          <div class="actions">
+            <button class="btn primary" id="btnRevealImpostors" type="button">Revelar impostores</button>
+            <button class="btn ghost" id="btnPlayAgain" type="button">Reiniciar</button>
+          </div>
         </div>
       </section>
 
       <section class="card view" data-view="results" aria-labelledby="resultsTitle">
         <div class="card-body">
-          <div class="badge danger">Impostores</div>
           <h2 id="resultsTitle" class="h2">Los impostores eran…</h2>
-          <div class="results" id="impostorNames">—</div>
+          <div class="name big" id="impostorNames">—</div>
 
           <div class="divider"></div>
 

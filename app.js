@@ -58,6 +58,18 @@ const DEFAULT_WORDS = [
 const el = (id) => document.getElementById(id);
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
+function on(id, event, handler, options) {
+  const node = el(id);
+  if (!node) return null;
+  node.addEventListener(event, handler, options);
+  return node;
+}
+
+function focusId(id) {
+  const node = el(id);
+  if (node && typeof node.focus === "function") node.focus();
+}
+
 function shuffleInPlace(arr) {
   for (let i = arr.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -71,6 +83,12 @@ function normalizeName(raw) {
     .trim()
     .replace(/\s+/g, " ")
     .replace(/^[,.-]+|[,.-]+$/g, "");
+}
+
+function capitalizeFirstLetter(text) {
+  const s = String(text || "").trim();
+  if (!s) return "";
+  return s[0].toLocaleUpperCase("es-ES") + s.slice(1);
 }
 
 function uniqByCaseInsensitive(names) {
@@ -95,7 +113,7 @@ async function loadWordsFromTextFile(path) {
   const text = await res.text();
   const words = text
     .split(/\r?\n/g)
-    .map((line) => line.trim())
+    .map((line) => capitalizeFirstLetter(line))
     .filter((line) => line && !line.startsWith("#"));
   return uniqByCaseInsensitive(words);
 }
@@ -140,14 +158,9 @@ const state = {
   starter: "",
 };
 
-function updateQuickStartUI() {
-  const btn = el("btnQuickStart");
-  if (!btn) return;
-  btn.disabled = !canQuickStart();
-}
-
 function setView(view) {
   state.view = view;
+  document.body.dataset.view = view;
   for (const node of document.querySelectorAll(".view")) {
     node.classList.toggle("active", node.dataset.view === view);
   }
@@ -188,23 +201,16 @@ function updateSetupUI() {
       state.participants.splice(idx, 1);
       updateSetupUI();
       saveSetup(state.participants, state.impostorCount);
-      updateQuickStartUI();
     });
 
     chip.append(text, del);
     chips.appendChild(chip);
   }
 
-  updateQuickStartUI();
 }
 
 function setSetupError(message) {
   el("setupError").textContent = message || "";
-}
-
-function canQuickStart() {
-  const loaded = loadSetup();
-  return Boolean(loaded && loaded.participants.length >= 3);
 }
 
 function hydrateFromSavedSetup() {
@@ -336,57 +342,41 @@ function resetAll() {
 }
 
 function wireEvents() {
-  el("btnGoSetup").addEventListener("click", () => {
+  on("btnGoSetup", "click", () => {
     setSetupError("");
     setView("setup");
-    el("nameInput").focus();
+    focusId("nameInput");
   });
 
-  el("btnBackHome").addEventListener("click", () => setView("home"));
+  on("btnBackHome", "click", () => setView("home"));
 
-  el("btnQuickStart").addEventListener("click", () => {
-    if (!hydrateFromSavedSetup()) {
-      setView("setup");
-      setSetupError("No hay una configuración guardada. Agrega participantes primero.");
-      updateSetupUI();
-      el("nameInput").focus();
-      return;
-    }
-    saveSetup(state.participants, state.impostorCount);
-    newRound();
-    setView("turn");
-    setTurnUI();
-  });
-
-  const resetBtn = el("btnReset");
-  if (resetBtn) resetBtn.addEventListener("click", resetAll);
+  on("btnReset", "click", resetAll);
 
   const addName = () => {
-    const raw = el("nameInput").value;
+    const input = el("nameInput");
+    const raw = input ? input.value : "";
     const name = normalizeName(raw);
     if (!name) return;
     state.participants = uniqByCaseInsensitive([...state.participants, name]);
-    el("nameInput").value = "";
+    if (input) input.value = "";
     setSetupError("");
     updateSetupUI();
     saveSetup(state.participants, state.impostorCount);
-    updateQuickStartUI();
-    el("nameInput").focus();
+    focusId("nameInput");
   };
 
-  el("btnAddName").addEventListener("click", addName);
-  el("nameInput").addEventListener("keydown", (e) => {
+  on("btnAddName", "click", addName);
+  on("nameInput", "keydown", (e) => {
     if (e.key === "Enter") addName();
   });
 
-  el("impostorRange").addEventListener("input", (e) => {
+  on("impostorRange", "input", (e) => {
     state.impostorCount = Number(e.target.value);
     el("impostorCountLabel").textContent = String(state.impostorCount);
     saveSetup(state.participants, state.impostorCount);
-    updateQuickStartUI();
   });
 
-  el("btnStartGame").addEventListener("click", () => {
+  on("btnStartGame", "click", () => {
     const count = state.participants.length;
     const maxImpostors = Math.max(1, Math.floor((count - 1) / 2));
 
@@ -401,43 +391,44 @@ function wireEvents() {
 
     setSetupError("");
     saveSetup(state.participants, state.impostorCount);
-    updateQuickStartUI();
     newRound();
     setView("turn");
     setTurnUI();
   });
 
-  el("btnRestartSetup").addEventListener("click", () => {
+  on("btnRestartSetup", "click", () => {
     if (!confirm("¿Seguro que quieres salir? Se perderán los roles actuales.")) return;
     setView("setup");
     setSetupError("");
     updateSetupUI();
-    el("nameInput").focus();
+    focusId("nameInput");
   });
 
-  el("btnReveal").addEventListener("click", (e) => {
+  on("btnReveal", "click", (e) => {
     e.stopPropagation();
     revealCurrent();
   });
 
-  el("btnNext").addEventListener("click", nextTurn);
+  on("btnNext", "click", nextTurn);
 
   // Swipe up gesture to reveal
   let touchStartY = null;
   const revealArea = el("revealArea");
-  revealArea.addEventListener("touchstart", (e) => {
-    if (!e.touches?.length) return;
-    touchStartY = e.touches[0].clientY;
-  });
-  revealArea.addEventListener("touchend", (e) => {
-    const endY = e.changedTouches?.[0]?.clientY;
-    if (touchStartY == null || endY == null) return;
-    const delta = endY - touchStartY;
-    touchStartY = null;
-    if (delta < -45) revealCurrent();
-  });
+  if (revealArea) {
+    revealArea.addEventListener("touchstart", (e) => {
+      if (!e.touches?.length) return;
+      touchStartY = e.touches[0].clientY;
+    });
+    revealArea.addEventListener("touchend", (e) => {
+      const endY = e.changedTouches?.[0]?.clientY;
+      if (touchStartY == null || endY == null) return;
+      const delta = endY - touchStartY;
+      touchStartY = null;
+      if (delta < -45) revealCurrent();
+    });
+  }
 
-  el("btnRevealImpostors").addEventListener("click", () => {
+  on("btnRevealImpostors", "click", () => {
     renderResults();
     setView("results");
   });
@@ -452,14 +443,14 @@ function wireEvents() {
     setTurnUI();
   };
 
-  el("btnPlayAgain").addEventListener("click", playAgain);
-  el("btnPlayAgain2").addEventListener("click", playAgain);
+  on("btnPlayAgain", "click", playAgain);
+  on("btnPlayAgain2", "click", playAgain);
 
-  el("btnChangeParticipants").addEventListener("click", () => {
+  on("btnChangeParticipants", "click", () => {
     setView("setup");
     setSetupError("");
     updateSetupUI();
-    el("nameInput").focus();
+    focusId("nameInput");
   });
 }
 
@@ -481,13 +472,11 @@ function init() {
     updateSetupUI();
   }
 
-  updateQuickStartUI();
   setView("home");
 
   // Keep quick start button state fresh if localStorage changes (multiple tabs).
   window.addEventListener("storage", (e) => {
     if (e.key !== STORAGE_KEY) return;
-    updateQuickStartUI();
   });
 }
 

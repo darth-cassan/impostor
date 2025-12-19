@@ -4,8 +4,8 @@
   "description": "Una app web móvil para jugar Impostor.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#0b1022",
-  "theme_color": "#0b1022",
+  "background_color": "#eef2ff",
+  "theme_color": "#eef2ff",
   "icons": [
     {
       "src": "icon.svg",
