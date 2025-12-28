@@ -14,6 +14,12 @@
     />
 
     <link rel="stylesheet" href="styles.css" />
+
+    <script
+      data-goatcounter="https://darth-cassan.goatcounter.com/count"
+      async
+      src="//gc.zgo.at/count.js"
+    ></script>
   </head>
   <body data-view="home">
     <div class="bg" aria-hidden="true"></div>
@@ -64,7 +70,7 @@
               spellcheck="false"
               placeholder="Escribe un nombre…"
             />
-            <button class="btn primary small" id="btnAddName" type="button">Agregar</button>
+            <button class="btn primary small add-plus" id="btnAddName" type="button" aria-label="Agregar">+</button>
           </div>
 
           <div class="chip-list" id="nameChips" aria-live="polite"></div>
@@ -86,6 +92,10 @@
 
           <div class="divider"></div>
 
+          <button class="btn ghost block" id="btnAdvanced" type="button">Categorías de palabras</button>
+
+          <div class="divider"></div>
+
           <p class="micro muted" id="setupError" role="alert"></p>
 
           <div class="actions">
@@ -94,6 +104,39 @@
           </div>
         </div>
       </section>
+
+      <div class="modal" id="advancedModal" aria-hidden="true">
+        <div class="modal-backdrop" id="advancedBackdrop"></div>
+        <div
+          class="modal-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="advancedTitle"
+          aria-describedby="advancedDesc"
+        >
+          <div class="modal-header">
+            <div>
+              <div class="modal-title" id="advancedTitle">Configuración avanzada</div>
+              <div class="modal-sub" id="advancedDesc">Elige categorías de palabras para la ronda.</div>
+            </div>
+            <button class="icon-btn" id="btnCloseAdvanced" type="button" title="Cerrar">
+              <span class="icon" aria-hidden="true">×</span>
+              <span class="sr-only">Cerrar</span>
+            </button>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn ghost small" id="btnSelectAllCats" type="button">Seleccionar todo</button>
+            <button class="btn ghost small" id="btnSelectNoneCats" type="button">Ninguna</button>
+          </div>
+
+          <div class="cat-grid" id="categoryGrid" aria-label="Categorías"></div>
+
+          <div class="modal-footer">
+            <button class="btn primary" id="btnSaveAdvanced" type="button">Guardar</button>
+          </div>
+        </div>
+      </div>
 
       <section class="card view" data-view="turn" aria-labelledby="turnTitle">
         <div class="card-body">

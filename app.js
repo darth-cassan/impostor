@@ -1,6 +1,7 @@
 /* eslint-disable no-alert */
 
-const STORAGE_KEY = "impostor:setup:v1";
+const STORAGE_KEY = "impostor:setup:v2";
+const STORAGE_KEY_V1 = "impostor:setup:v1";
 
 const DEFAULT_WORDS = [
   "Pineapple",
@@ -118,20 +119,44 @@ async function loadWordsFromTextFile(path) {
   return uniqByCaseInsensitive(words);
 }
 
+async function loadWordsFromCategoriesJson(path) {
+  const res = await fetch(path, { cache: "no-cache" });
+  if (!res.ok) throw new Error(`Failed to load words json: ${res.status}`);
+  const data = await res.json();
+  const categories =
+    data && data.categories && typeof data.categories === "object" ? data.categories : null;
+  if (!categories) throw new Error("Invalid words json");
+
+  const normalized = {};
+  for (const [category, list] of Object.entries(categories)) {
+    if (!Array.isArray(list)) continue;
+    const words = uniqByCaseInsensitive(list.map((w) => capitalizeFirstLetter(w)).filter(Boolean));
+    if (words.length) normalized[category] = words;
+  }
+  const names = Object.keys(normalized);
+  if (!names.length) throw new Error("No categories found");
+  return normalized;
+}
+
 function saveSetup(participants, impostorCount) {
   try {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ participants, impostorCount, savedAt: Date.now() }),
+      JSON.stringify({
+        participants,
+        impostorCount,
+        categoriesSelected: state.categoriesSelected,
+        savedAt: Date.now(),
+      }),
     );
-  } catch {
+  } catch (e) {
     // ignore
   }
 }
 
 function loadSetup() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(STORAGE_KEY_V1);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.participants)) return null;
@@ -140,8 +165,11 @@ function loadSetup() {
       impostorCount: Number.isFinite(parsed.impostorCount)
         ? parsed.impostorCount
         : 1,
+      categoriesSelected: Array.isArray(parsed.categoriesSelected)
+        ? parsed.categoriesSelected.filter((c) => typeof c === "string")
+        : null,
     };
-  } catch {
+  } catch (e) {
     return null;
   }
 }
@@ -151,6 +179,9 @@ const state = {
   participants: [],
   impostorCount: 1,
   words: DEFAULT_WORDS,
+  wordsByCategory: null,
+  categoriesSelected: null, // null => all selected
+  categoriesLoading: true,
   word: "",
   assignments: [],
   turnIndex: 0,
@@ -182,6 +213,9 @@ function updateSetupUI() {
 
   const sliderBlock = el("impostorSliderBlock");
   if (sliderBlock) sliderBlock.style.display = maxImpostors === 1 ? "none" : "";
+
+  const advancedBtn = el("btnAdvanced");
+  if (advancedBtn) advancedBtn.style.display = state.wordsByCategory ? "" : "none";
 
   const chips = el("nameChips");
   chips.innerHTML = "";
@@ -226,7 +260,28 @@ function hydrateFromSavedSetup() {
     1,
     Math.max(1, Math.floor((participants.length - 1) / 2)),
   );
+  state.categoriesSelected = loaded.categoriesSelected;
   return true;
+}
+
+function getSelectedWordPool() {
+  const byCategory = state.wordsByCategory;
+  if (!byCategory) return Array.isArray(state.words) ? state.words : DEFAULT_WORDS;
+
+  const allCategories = Object.keys(byCategory);
+  const selected =
+    state.categoriesSelected === null
+      ? allCategories
+      : Array.isArray(state.categoriesSelected)
+        ? state.categoriesSelected
+        : allCategories;
+
+  const pool = [];
+  for (const cat of selected) {
+    const list = byCategory[cat];
+    if (Array.isArray(list)) pool.push(...list);
+  }
+  return pool.length ? uniqByCaseInsensitive(pool) : DEFAULT_WORDS;
 }
 
 function newRound() {
@@ -238,7 +293,7 @@ function newRound() {
   shuffleInPlace(indices);
   const impostorIdx = new Set(indices.slice(0, impostors));
 
-  const pool = Array.isArray(state.words) && state.words.length ? state.words : DEFAULT_WORDS;
+  const pool = getSelectedWordPool();
   state.word = pickRandom(pool);
   state.assignments = players.map((name, i) => ({
     name,
@@ -255,7 +310,7 @@ function setTurnUI() {
   const current = state.assignments[state.turnIndex];
   el("turnBadge").textContent = `Jugador ${state.turnIndex + 1} de ${total}`;
   el("turnProgress").textContent = state.revealed ? "Revelado" : "Oculto";
-  el("turnName").textContent = current?.name ?? "—";
+  el("turnName").textContent = current && current.name != null ? current.name : "—";
 
   // reset reveal card
   const revealArea = el("revealArea");
@@ -326,7 +381,7 @@ function resetAll() {
   if (!confirm("¿Reiniciar la partida y la configuración?")) return;
   try {
     localStorage.removeItem(STORAGE_KEY);
-  } catch {
+  } catch (e) {
     // ignore
   }
   state.participants = [];
@@ -341,6 +396,102 @@ function resetAll() {
   setView("home");
 }
 
+function openAdvanced() {
+  const modal = el("advancedModal");
+  if (!modal) return;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  renderCategoryGrid();
+}
+
+function closeAdvanced() {
+  const modal = el("advancedModal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+function setSelectedCategories(listOrNull) {
+  state.categoriesSelected = listOrNull;
+  saveSetup(state.participants, state.impostorCount);
+}
+
+function renderCategoryGrid() {
+  const grid = el("categoryGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  const byCategory = state.wordsByCategory;
+  if (!byCategory) {
+    const note = document.createElement("div");
+    note.className = "micro muted";
+    note.textContent = state.categoriesLoading ? "Cargando categorías…" : "Categorías no disponibles.";
+    grid.appendChild(note);
+    return;
+  }
+
+  const categories = Object.keys(byCategory).sort((a, b) => a.localeCompare(b, "es"));
+  const selected =
+    state.categoriesSelected === null
+      ? new Set(categories) // all
+      : Array.isArray(state.categoriesSelected)
+        ? new Set(state.categoriesSelected) // can be empty
+        : new Set(categories);
+
+  for (const cat of categories) {
+    const btn = document.createElement("div");
+    btn.className = "cat";
+    btn.setAttribute("role", "switch");
+    btn.setAttribute("tabindex", "0");
+    btn.setAttribute("aria-checked", selected.has(cat) ? "true" : "false");
+    btn.setAttribute("aria-label", `Categoría: ${cat}`);
+
+    const left = document.createElement("div");
+    left.className = "cat-left";
+    const name = document.createElement("div");
+    name.className = "cat-name";
+    name.textContent = cat;
+    left.appendChild(name);
+
+    const meta = document.createElement("div");
+    meta.className = "cat-meta";
+    meta.textContent = `${byCategory[cat].length}`;
+
+    const indicator = document.createElement("div");
+    indicator.className = "cat-indicator";
+    indicator.setAttribute("aria-hidden", "true");
+    indicator.textContent = "✓";
+
+    const toggle = () => {
+      const isOn = btn.getAttribute("aria-checked") === "true";
+      btn.setAttribute("aria-checked", isOn ? "false" : "true");
+
+      // Rebuild from DOM state to avoid drift
+      const chosen = [];
+      for (const node of grid.querySelectorAll(".cat")) {
+        const labelNode = node.querySelector(".cat-name");
+        const label = labelNode ? labelNode.textContent : null;
+        if (!label) continue;
+        if (node.getAttribute("aria-checked") === "true") chosen.push(label);
+      }
+      setSelectedCategories(chosen.length === categories.length ? null : chosen);
+    };
+
+    btn.addEventListener("click", toggle);
+    btn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggle();
+      }
+    });
+
+    btn.append(left, meta, indicator);
+    grid.appendChild(btn);
+  }
+}
+
 function wireEvents() {
   on("btnGoSetup", "click", () => {
     setSetupError("");
@@ -351,6 +502,24 @@ function wireEvents() {
   on("btnBackHome", "click", () => setView("home"));
 
   on("btnReset", "click", resetAll);
+  on("btnAdvanced", "click", () => openAdvanced());
+  on("btnCloseAdvanced", "click", () => closeAdvanced());
+  on("advancedBackdrop", "click", () => closeAdvanced());
+  on("btnSaveAdvanced", "click", () => closeAdvanced());
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const modal = el("advancedModal");
+    if (modal && modal.classList.contains("open")) closeAdvanced();
+  });
+
+  on("btnSelectAllCats", "click", () => {
+    setSelectedCategories(null);
+    renderCategoryGrid();
+  });
+  on("btnSelectNoneCats", "click", () => {
+    setSelectedCategories([]);
+    renderCategoryGrid();
+  });
 
   const addName = () => {
     const input = el("nameInput");
@@ -388,6 +557,10 @@ function wireEvents() {
       setSetupError(`Debe haber menos impostores que jugadores normales (máximo ${maxImpostors}).`);
       return;
     }
+    if (state.wordsByCategory && Array.isArray(state.categoriesSelected) && state.categoriesSelected.length === 0) {
+      setSetupError("Selecciona al menos una categoría de palabras.");
+      return;
+    }
 
     setSetupError("");
     saveSetup(state.participants, state.impostorCount);
@@ -416,11 +589,12 @@ function wireEvents() {
   const revealArea = el("revealArea");
   if (revealArea) {
     revealArea.addEventListener("touchstart", (e) => {
-      if (!e.touches?.length) return;
+      if (!e.touches || !e.touches.length) return;
       touchStartY = e.touches[0].clientY;
     });
     revealArea.addEventListener("touchend", (e) => {
-      const endY = e.changedTouches?.[0]?.clientY;
+      const endY =
+        e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : null;
       if (touchStartY == null || endY == null) return;
       const delta = endY - touchStartY;
       touchStartY = null;
@@ -457,6 +631,22 @@ function wireEvents() {
 function init() {
   wireEvents();
 
+  loadWordsFromCategoriesJson("./words.json")
+    .then((byCategory) => {
+      state.wordsByCategory = byCategory;
+      state.categoriesLoading = false;
+      // default select all if nothing chosen
+      if (state.categoriesSelected == null) {
+        state.categoriesSelected = null;
+      }
+      updateSetupUI();
+    })
+    .catch(() => {
+      state.categoriesLoading = false;
+      // ignore; fallback to words.txt / defaults
+      updateSetupUI();
+    });
+
   loadWordsFromTextFile("./words.txt")
     .then((words) => {
       if (Array.isArray(words) && words.length) state.words = words;
@@ -468,6 +658,8 @@ function init() {
   // Load saved setup for convenience, but don’t force it.
   if (hydrateFromSavedSetup()) {
     updateSetupUI();
+    // If we loaded from v1, persist into v2 format.
+    saveSetup(state.participants, state.impostorCount);
   } else {
     updateSetupUI();
   }
@@ -480,4 +672,8 @@ function init() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", init);
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
