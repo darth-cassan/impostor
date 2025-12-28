@@ -496,7 +496,7 @@ function wireEvents() {
   on("btnGoSetup", "click", () => {
     setSetupError("");
     setView("setup");
-    focusId("nameInput");
+    focusId("setupTitle");
   });
 
   on("btnBackHome", "click", () => setView("home"));
@@ -574,7 +574,7 @@ function wireEvents() {
     setView("setup");
     setSetupError("");
     updateSetupUI();
-    focusId("nameInput");
+    focusId("setupTitle");
   });
 
   on("btnReveal", "click", (e) => {
@@ -624,7 +624,7 @@ function wireEvents() {
     setView("setup");
     setSetupError("");
     updateSetupUI();
-    focusId("nameInput");
+    focusId("setupTitle");
   });
 }
 
